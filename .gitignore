@@ -1,0 +1,7 @@
+
+**.code-workspace
+.vscode
+.venv
+/data
+
+**/.DS_Store

@@ -16,10 +16,10 @@ We will use poetry to manage dependencies, so all you have to do is:
 
 # Directories
 data:
--labels: csv files containing the labels and metadata of the images
+-labels: csv files containing the labels and metadata of the images (train.csv, test.csv)
 -jpeg: the jpeg folder from the kaggle dataset (we will operate on the jpeg)
---train
---test
+--train: training images
+--test: testing images
 model: model architechtures, utils, torch.Datasets/DataLoaders
 scripts: training scripts
 notebooks: place to store notebooks and experiments

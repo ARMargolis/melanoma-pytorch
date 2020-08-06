@@ -10,11 +10,13 @@ from PIL import Image
 from torchvision import transforms, utils
 
 
-
+default_device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class MelanomaDataset(data.Dataset):
+    # TODO initialize conv layers and fc layers in a particular way. Important for our experiment
+    # TODO add cuda support
     
-    def __init__(self, imgs_dir, label_csv, train, **specifications):
+    def __init__(self, imgs_dir, label_csv, train, device = default_device, **specifications):
         """
         Initializes the dataset. Will use .jpg images.
         img_dir (str): Absolute path to directory where the .jpg files are stored
@@ -23,12 +25,20 @@ class MelanomaDataset(data.Dataset):
             -transform
             -resolution: what size do we want to resize the images to? Square or rectangular?
         """
+        #  Handle specifications
         if specifications:
             print('Specifications:')
             for key, value in specifications.items():
                 print(key, ' : ', value)
             print('----------------------')
         #images generally are 1053x1872 coming in - will centercrop to 1000 x 1000
+        self.initial_resolution = (1053,1872)
+        if 'initial_resolution' in specifications:
+            if isinstance(specifications['initial_resolution']):
+                self.initial_resolution = specifications['initial_resolution']
+            else:
+                print('Invalid format for inital resolution. Give a tuple')
+
         # Figure out what transforms to use
         if 'transform' not in specifications:
             # If I didn't specify a transform
@@ -36,6 +46,7 @@ class MelanomaDataset(data.Dataset):
                 # if a training dataset
                 self.transform = transforms.Compose(
                     [
+                        transforms.Resize(self.initial_resolution),
                         transforms.RandomVerticalFlip(p=0.5),
                         transforms.RandomHorizontalFlip(p=0.5),
                         transforms.RandomRotation(degrees=10, resample = Image.BICUBIC, expand = True),

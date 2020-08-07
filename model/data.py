@@ -80,12 +80,13 @@ class MelanomaDataset(data.Dataset):
                 # If I directly feed in a transform, use that
                 self.transform = specifications['transform']
 
-
         self.imgs_dir = imgs_dir
         # Get the label stuff
         # Columns: image_name, patient_id, sex, age_approx, anatom_site_general_challenge, diagnosis, benign_malignant, target
         # target: 0 == benign, 1 == malignant
         self.label_df = pd.read_csv(label_csv)
+
+        self.device = device
     
     def __len__(self):
         return self.label_df.shape[0]
@@ -107,6 +108,7 @@ class MelanomaDataset(data.Dataset):
         )
 
         image = self.transform(image)
+        image = image.to(self.device)
 
         return (image, torch.LongTensor([label]) )
     

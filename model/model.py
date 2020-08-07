@@ -8,7 +8,8 @@ default_config = {
     'n_classes':1, #binary classification
     'base_channels':3,
     'block_type':'basic',
-    'depth':20 # depth should be two more than a multiple of six
+    'depth':20, # depth should be two more than a multiple of six
+    'device': 'cuda' if torch.cuda.is_available() else 'cpu'
 
 }
 
@@ -24,13 +25,15 @@ class MelanomaNet(nn.Module):
         base_channels = config['base_channels']
         block_type = config['block_type']
         depth = config['depth']
+        self.device = config['device']
+        print('device: ', self.device)
 
         assert block_type in ['basic', 'bottleneck']
         if block_type == 'basic':
             print('block type: ', block_type)
             block = BasicBlock
             n_blocks_per_stage = (depth - 2) // 6
-            print(n_blocks_per_stage)
+            print('blocks per stage: ', n_blocks_per_stage)
             assert n_blocks_per_stage * 6 + 2 == depth
         else:
             block = BottleneckBlock
@@ -68,6 +71,8 @@ class MelanomaNet(nn.Module):
         # initialize weights
         #self.apply(initialize_weights)
 
+        self.to(self.device)
+
     def _make_stage(self, in_channels, out_channels, n_blocks, block, stride):
         stage = nn.Sequential()
         for index in range(n_blocks):
@@ -94,6 +99,18 @@ class MelanomaNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x
+    
+    def predict(self, x, threshold=0.5):
+        # predict 0 (benign) or 1 (malignant)
+        model.eval()
+        with torch.no_grad():
+            a = self.forward(x)
+            a = F.sigmoid(a)
+            # Round to 0 or 1 by threshold. 
+            # In a clinical setting, a false negative would probably be worse than 
+            # a false positive so we would set the confidence threshold lower
+            a = (a.detach().cpu().numpy() > threshold).astype(int)
+            return a
 
 
 class BasicBlock(nn.Module):

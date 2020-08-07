@@ -3,43 +3,99 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+default_config = {
+    'input_shape':(1,3,244,244),
+    'n_classes':1, #binary classification
+    'base_channels':3,
+    'block_type':'basic',
+    'depth':20 # depth should be two more than a multiple of six
+
+}
+
+# Credit for all code below goes to https://github.com/hysts/pytorch_resnet/blob/master/resnet.py
 
 class MelanomaNet(nn.Module):
-    def __init__(self, **architechture):
+    def __init__(self, config=default_config):
         super(MelanomaNet, self).__init__()
-        #EXPECTS 244 BY 244 INPUT! resnet paper: https://arxiv.org/pdf/1512.03385.pdf
 
-        channels = [3,64,64,64,128,128,256,256,512,512] #[3,64,256,512,1020,2040,1020,512,1]
-        channels = list(zip(channels,channels[1:]))[1:] #first layer is not a resblock, just a conv.
-        kernels = [(3,3) for block in channels]
-        strides = [3 for block in channels]
+        input_shape = config['input_shape']
+        n_classes = config['n_classes']
 
-        # intro block.
-        # TODO don't forget to normalize the input. BatchNorm or just make sure pixel vals are scaled properly
-        self.conv1 = nn.Conv2d(in_channels=3,out_channels=channels[0][0],kernel_size=(3,3),stride=1,bias=False, padding=1)
-        self.intro = nn.Sequential(
-            # Don't forget regularization in the optimizer
-            self.conv1,
-            #nn.MaxPool2d(kernel_size=(3,3), stride=2, padding =1),
-            nn.BatchNorm2d(channels[0][0])
-        )
-        
-        residual_layers = [BasicBlock(in_channels=channels[i][0],out_channels=channels[i][1],stride=strides[i]) for i in range(len(channels))]
-        self.residual_layers = nn.Sequential(*residual_layers) 
-        
-        #self.avg_pool = nn.AvgPool2d()
+        base_channels = config['base_channels']
+        block_type = config['block_type']
+        depth = config['depth']
 
-        self.block = BasicBlock(in_channels=3, out_channels=6, stride = 3)
+        assert block_type in ['basic', 'bottleneck']
+        if block_type == 'basic':
+            print('block type: ', block_type)
+            block = BasicBlock
+            n_blocks_per_stage = (depth - 2) // 6
+            print(n_blocks_per_stage)
+            assert n_blocks_per_stage * 6 + 2 == depth
+        else:
+            block = BottleneckBlock
+            n_blocks_per_stage = (depth - 2) // 9
+            assert n_blocks_per_stage * 9 + 2 == depth
+
+        n_channels = [
+            base_channels, base_channels * 2 * block.expansion,
+            base_channels * 4 * block.expansion
+        ]
+
+        self.conv = nn.Conv2d(
+            input_shape[1],
+            n_channels[0],
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False)
+        self.bn = nn.BatchNorm2d(base_channels)
+
+        self.stage1 = self._make_stage(
+            n_channels[0], n_channels[0], n_blocks_per_stage, block, stride=1)
+        self.stage2 = self._make_stage(
+            n_channels[0], n_channels[1], n_blocks_per_stage, block, stride=2)
+        self.stage3 = self._make_stage(
+            n_channels[1], n_channels[2], n_blocks_per_stage, block, stride=2)
+
+        # compute conv feature size
+        with torch.no_grad():
+            self.feature_size = self._forward_conv(
+                torch.zeros(*input_shape)).view(-1).shape[0]
+
+        self.fc = nn.Linear(self.feature_size, n_classes)
+
+        # initialize weights
+        #self.apply(initialize_weights)
+
+    def _make_stage(self, in_channels, out_channels, n_blocks, block, stride):
+        stage = nn.Sequential()
+        for index in range(n_blocks):
+            block_name = 'block{}'.format(index + 1)
+            if index == 0:
+                stage.add_module(
+                    block_name, block(
+                        in_channels, out_channels, stride=stride))
+            else:
+                stage.add_module(block_name,
+                                 block(out_channels, out_channels, stride=1))
+        return stage
+
+    def _forward_conv(self, x):
+        x = F.relu(self.bn(self.conv(x)), inplace=True)
+        x = self.stage1(x)
+        x = self.stage2(x)
+        x = self.stage3(x)
+        x = F.adaptive_avg_pool2d(x, output_size=1)
+        return x
 
     def forward(self, x):
-        x = self.intro(x)
-        print(x.clone().shape)
-        x = self.residual_layers(x)
+        x = self._forward_conv(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
         return x
 
 
-
-# Credit for all code below goes to https://github.com/hysts/pytorch_resnet/blob/master/resnet.py
 class BasicBlock(nn.Module):
     expansion = 1
 

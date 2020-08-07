@@ -7,11 +7,34 @@ import torch.nn.functional as F
 class MelanomaNet(nn.Module):
     def __init__(self, **architechture):
         super(MelanomaNet, self).__init__()
+        #EXPECTS 244 BY 244 INPUT! resnet paper: https://arxiv.org/pdf/1512.03385.pdf
+
+        channels = [3,64,64,64,128,128,256,256,512,512] #[3,64,256,512,1020,2040,1020,512,1]
+        channels = list(zip(channels,channels[1:]))[1:] #first layer is not a resblock, just a conv.
+        kernels = [(3,3) for block in channels]
+        strides = [3 for block in channels]
+
+        # intro block.
+        # TODO don't forget to normalize the input. BatchNorm or just make sure pixel vals are scaled properly
+        self.conv1 = nn.Conv2d(in_channels=3,out_channels=channels[0][0],kernel_size=(3,3),stride=1,bias=False, padding=1)
+        self.intro = nn.Sequential(
+            # Don't forget regularization in the optimizer
+            self.conv1,
+            #nn.MaxPool2d(kernel_size=(3,3), stride=2, padding =1),
+            nn.BatchNorm2d(channels[0][0])
+        )
+        
+        residual_layers = [BasicBlock(in_channels=channels[i][0],out_channels=channels[i][1],stride=strides[i]) for i in range(len(channels))]
+        self.residual_layers = nn.Sequential(*residual_layers) 
+        
+        #self.avg_pool = nn.AvgPool2d()
 
         self.block = BasicBlock(in_channels=3, out_channels=6, stride = 3)
 
     def forward(self, x):
-        x = self.block(x)
+        x = self.intro(x)
+        print(x.clone().shape)
+        x = self.residual_layers(x)
         return x
 
 

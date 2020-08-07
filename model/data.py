@@ -25,6 +25,7 @@ class MelanomaDataset(data.Dataset):
             -transform
             -resolution: what size do we want to resize the images to? Square or rectangular?
         """
+        
         #  Handle specifications
         if specifications:
             print('Specifications:')
@@ -38,6 +39,8 @@ class MelanomaDataset(data.Dataset):
                 self.initial_resolution = specifications['initial_resolution']
             else:
                 print('Invalid format for inital resolution. Give a tuple')
+        # Set resolution of actual samples to feed into the model
+        self.resolution = 244 # 1000 default
 
         # Figure out what transforms to use
         if 'transform' not in specifications:
@@ -47,20 +50,26 @@ class MelanomaDataset(data.Dataset):
                 self.transform = transforms.Compose(
                     [
                         transforms.Resize(self.initial_resolution),
+                        transforms.CenterCrop(self.initial_resolution[0]), #get a square image
+                        transforms.RandomResizedCrop(size=self.resolution, scale=(0.8, 1.0)),
                         transforms.RandomVerticalFlip(p=0.5),
                         transforms.RandomHorizontalFlip(p=0.5),
-                        transforms.RandomRotation(degrees=10, resample = Image.BICUBIC, expand = True),
-                        transforms.CenterCrop(1000),
+                        #transforms.RandomRotation(degrees=10, resample = Image.BICUBIC, expand = True),
+                        #transforms.CenterCrop(self.resolution),
                         transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
-                        transforms.ToTensor()
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]) #Taken from overall dataset
                     ]
                 )
             else:
                 # if test
                 self.transform = transforms.Compose(
                     [
-                        transforms.CenterCrop(1000),
-                        transforms.ToTensor()
+                        transforms.Resize(self.initial_resolution),
+                        transforms.CenterCrop(self.initial_resolution[0]), #get a square image
+                        transforms.CenterCrop(self.resolution), 
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
                     ]
                 )
         else:

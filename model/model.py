@@ -14,6 +14,7 @@ default_config = {
 }
 
 # Credit for all code below goes to https://github.com/hysts/pytorch_resnet/blob/master/resnet.py
+# The license of said project allows for reuse (commercial or otherwise), modification, and distribution of the code, without limitations
 
 class MelanomaNet(nn.Module):
     def __init__(self, config=default_config):

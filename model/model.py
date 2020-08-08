@@ -19,6 +19,7 @@ default_config = {
 class MelanomaNet(nn.Module):
     def __init__(self, config=default_config):
         super(MelanomaNet, self).__init__()
+        print(config)
 
         input_shape = config['input_shape']
         n_classes = config['n_classes']
@@ -27,7 +28,6 @@ class MelanomaNet(nn.Module):
         block_type = config['block_type']
         depth = config['depth']
         self.device = config['device']
-        print('device: ', self.device)
 
         assert block_type in ['basic', 'bottleneck']
         if block_type == 'basic':

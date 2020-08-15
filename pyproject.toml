@@ -12,6 +12,9 @@ numpy = "^1.19.1"
 sklearn = "^0.0"
 matplotlib = "^3.3.0"
 torchvision = "^0.7.0"
+Pillow = "^7.2.0"
+scikit-image = "^0.17.2"
+datetime = "^4.3"
 
 [tool.poetry.dev-dependencies]
 
